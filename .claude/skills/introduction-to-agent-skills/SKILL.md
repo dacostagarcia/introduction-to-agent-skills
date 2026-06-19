@@ -1,127 +1,145 @@
 ---
 name: introduction-to-agent-skills
 description: >
-  Teaches the four primitives of Claude Code agentic systems — tools/MCP, skills,
-  sub-agents, and agent loops — and how they compose. Use when introducing or teaching
-  how Claude Code skills, sub-agents, agents, and MCP tools differ, when to use each,
-  and how they fit together in a real project.
+  Guided tour of the Claude Code agentic taxonomy: skills, subagents, agents, and
+  agent loops — explained through a single live example (the document digester) expressed
+  at each level. Use when introducing or teaching how the four primitives differ and
+  compose. Runs in the caller's context (it's a skill about skills).
 user-invocable: true
 ---
 
 # Introduction to Agent Skills
 
-Welcome. This skill *is* the lesson — you're looking at a SKILL.md being invoked right now.
+*You just invoked a skill that teaches you about skills.*
 
 ---
 
-## The Four Primitives
-
-Every Claude Code agentic system is built from exactly four building blocks.
-If you understand these four things and when to reach for each, you understand the whole model.
+## The taxonomy — four primitives, one diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    AGENT LOOP (orchestrator)                        │
-│         headless `claude --print` · decides what to call            │
-│                      🧠  expensive                                   │
+│                    AGENT LOOP (the orchestrator)                    │
+│      headless `claude --print` · decides what to invoke · repeats  │
+│                      🧠 most expensive                               │
 │                                                                     │
 │    ┌──────────────────────┐    ┌──────────────────────────────┐     │
-│    │       SKILL          │    │         SUB-AGENT            │     │
-│    │  (caller's context)  │    │  (forked, isolated context)  │     │
+│    │        SKILL         │    │   SUBAGENT / AGENT           │     │
+│    │  runs in YOUR context│    │  isolated context window     │     │
 │    │  SKILL.md, no fork   │    │  SKILL.md + context: fork    │     │
-│    │  💚 cheap to invoke   │    │  💛 pays its own context      │     │
+│    │  💚 cheap to invoke   │    │  or .claude/agents/*.md      │     │
+│    │                      │    │  💛 pays its own context      │     │
 │    └──────────────────────┘    └──────────────────────────────┘     │
 │                         calls                                       │
 │    ┌───────────────────────────────────────────────────────────┐    │
 │    │              TOOLS / MCP                                  │    │
-│    │  WebFetch, Bash, WebSearch, Slack MCP, GitHub MCP, …      │    │
-│    │  deterministic I/O — no reasoning — 💚 very cheap          │    │
+│    │  Read, Bash, WebFetch, WebSearch, Slack MCP, …            │    │
+│    │  deterministic I/O · no reasoning · 💚 very cheap          │    │
 │    └───────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Tools / MCP
-The **hands** of the system. Deterministic I/O: fetch a URL, run a shell command, post to
-Slack, query a database. No reasoning happens here — they just execute.
-
-> *Use tools when you need a specific, bounded action. Never use an LLM where a `curl` will do.*
-
-### 2. Skill
-A packaged set of instructions (this file). **Zero tokens sit in context until you invoke it**
-— only `name` + `description` are ever loaded by the caller, so skills don't bloat your
-context window just by existing. When invoked, the body loads and runs **in the caller's context**.
-
-> *Use a skill when you have deterministic logic you want to reuse and invoke by name.*
-
-### 3. Sub-agent
-**Exactly the same SKILL.md** — but with `context: fork` in the frontmatter. That one line
-changes everything: the work runs in an **isolated context window**. Only a summary returns to
-the caller. Your context stays clean regardless of how much the sub-agent does.
-
-> *Use a sub-agent when the work is large, independent, or would pollute the caller's context.*
-
-### 4. Agent Loop
-A control-plane LLM running headless (`claude --print`) on a schedule (cron / launchd).
-It reads instructions, decides which skills and tools to call, and orchestrates the whole
-workflow autonomously.
-
-> *Use an agent loop for automation that must run unattended — the orchestrator, not the worker.*
+| Primitive | What it is | How you get it |
+|---|---|---|
+| **Skill** | Reusable instructions. In the **caller's** context. Zero cost until invoked. | `SKILL.md` |
+| **Subagent** | Isolated context. Only the result returns. Caller stays clean. | `SKILL.md` + `context: fork` |
+| **Agent** | Named, isolated executor. Fixed tools + model. Delegated by orchestrators. | `.claude/agents/NAME.md` |
+| **Agent loop** | The orchestrator. Headless. Repeats. Decides what to call. | `claude --print` in a shell script |
 
 ---
 
-## Live Demos — Run These Now
+## The single example: a document digester
 
-Three skills in this repo illustrate the primitives. Run each in order:
+This repo teaches the taxonomy using **one task** expressed four ways.
+The task: read a long document (`sample-doc.md`) and return a short digest.
 
-**Demo 1 — Skill (in-context):**
-```
-/demo-hello-skill
-```
-Notice: the output appears inline. The work happened in *your* context window.
-
-**Demo 2 — Sub-agent (forked, isolated):**
-```
-/demo-fork-subagent
-```
-Notice: you get back a summary. The work happened in a *separate* context that is now gone.
-Then run:
-```
-git diff --no-index .claude/skills/demo-hello-skill/SKILL.md .claude/skills/demo-fork-subagent/SKILL.md
-```
-The diff is one meaningful line: `context: fork`. That's the entire lesson.
-
-**Demo 3 — Dynamic context injection:**
-```
-/demo-dynamic-context Your Name Here
-```
-Notice: the skill body was populated with live shell output (date, pwd, git branch) *before*
-the model read it. `$1` was replaced with your argument. The model didn't have to go look
-for any of it — it was injected deterministically.
+As you run each expression below, notice what changes — and what *doesn't*.
 
 ---
 
-## The Real-World Example
-
-All four primitives working together in production:
+### Expression 1 — Skill (in-context)
 
 ```
-daily-research-skill/
-  .claude/skills/daily-curated-research/SKILL.md  ← the skill (and sub-agent if forked)
-  slack-post.sh + .mcp.json                       ← the tools
-  run-daily.sh                                    ← the agent loop (headless claude --print)
+/digest-skill sample-doc.md "key risks" short
 ```
 
-See: https://github.com/dacostagarcia/daily-research-skill
+The skill body loads into **your** context. The document is read here. The digest and
+all intermediate reasoning stay in your session history.
+
+Observe: after running this, your context window grew by the size of `sample-doc.md`.
 
 ---
 
-## Go Deeper
+### Expression 2 — Subagent (`context: fork`)
 
-- **Concepts in detail:** See `reference/concepts.md` in this skill's directory for the
-  full cost/context trade-off breakdown and anti-patterns.
-- **All frontmatter options:** See `reference/frontmatter.md` for every SKILL.md field
-  with one-line explanations and when to use each.
+```
+/digest-subagent sample-doc.md "key risks" short
+```
+
+Exactly the same task — but the document is read in an **isolated context**. Only the
+digest returns. Your context does not grow.
+
+Then run the diff — this is the talk's key moment:
+
+```bash
+git diff --no-index \
+  .claude/skills/digest-skill/SKILL.md \
+  .claude/skills/digest-subagent/SKILL.md
+```
+
+The diff is two lines in the frontmatter. That's the entire lesson between a skill and
+a subagent.
 
 ---
 
-*Medium = message: you just ran a skill that teaches you about skills.*
+### Expression 3 — Agent definition
+
+Ask Claude directly:
+
+> "Use the digester agent to summarize sample-doc.md, focusing on security considerations,
+> in a short digest."
+
+Claude will delegate to `.claude/agents/digester.md` via the Agent tool. Notice:
+- It runs on `claude-haiku` (cheaper — the agent definition sets the model).
+- Its tools are locked to `Read` and `Bash` — it cannot fetch URLs or write files.
+- It's always isolated — agent definitions always run as subagents.
+
+---
+
+### Expression 4 — Agent loop
+
+```bash
+bash digest-all.sh --dry-run
+bash digest-all.sh
+```
+
+`digest-all.sh` is the orchestrator. It loops over `docs/*.md`, calls
+`claude --print "/digest-subagent <file>"` for each, and writes results to `digests/`.
+
+Notice what the script contains: iteration logic and invocation. No business logic.
+That lives in `digest-subagent`. The loop's only job is to decide and repeat.
+
+---
+
+## The two "aha"s
+
+**1. Skill → Subagent = one line.**
+`context: fork` in the frontmatter. Same SKILL.md body. Completely different
+execution model. You can prototype as a skill, then upgrade to a subagent by adding
+one line. No rewrite needed.
+
+**2. Subagent vs Agent definition.**
+Both are isolated. The difference: a subagent is a *relationship* (this skill runs
+isolated); an agent definition is a *thing* (a named executor any orchestrator can
+delegate to, with fixed tools and model). If multiple callers need the same isolated
+executor, name it as an agent.
+
+---
+
+## Go deeper
+
+- **Full taxonomy breakdown:** `reference/taxonomy.md` — cost/context trade-offs, when
+  to reach for each, anti-patterns, all illustrated with the digest example.
+- **Every frontmatter option:** `reference/frontmatter.md` — `context: fork`, `agent:`,
+  `allowed-tools`, `arguments:`, dynamic injection, string substitutions.
+- **Production example:** https://github.com/dacostagarcia/daily-research-skill — all
+  four primitives working together in a real nightly automation.
