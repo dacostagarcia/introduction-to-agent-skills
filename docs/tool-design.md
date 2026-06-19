@@ -1,5 +1,8 @@
 # Tool Design Principles
 
+> **Sample corpus file.** This document is processed by `digest-all.sh` (Demo 4 — the
+> agent loop). Run `bash digest-all.sh` from the repo root to see it digested.
+
 Guidelines for building effective tools in Claude Code agentic systems.
 
 ## What makes a good tool

@@ -104,7 +104,7 @@ context: fork
 agent: You are a focused document digester running in an isolated context.
 ```
 
-Run `git diff --no-index digest-skill/SKILL.md digest-subagent/SKILL.md` to see this.
+Run `git diff --no-index .claude/skills/digest-skill/SKILL.md .claude/skills/digest-subagent/SKILL.md` to see this.
 
 **Decision rule:** Use a subagent when the task is large (the intermediate work would
 bloat the caller's context) or independent (the caller doesn't need to see the steps).

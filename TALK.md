@@ -33,9 +33,10 @@ The four expressions are: skill, subagent, agent definition, agent loop.
 │    └──────────────────────┘    └──────────────────────────────┘     │
 │                         calls                                       │
 │    ┌───────────────────────────────────────────────────────────┐    │
+│    │              TOOLS / MCP                                  │    │
+│    │  Read, Bash, WebFetch, WebSearch, Slack MCP, …            │    │
+│    │  deterministic I/O · no reasoning · 💚 very cheap          │    │
 │    └───────────────────────────────────────────────────────────┘    │
-│              TOOLS / MCP: Read, Bash, WebFetch, Slack MCP, …       │
-│              deterministic I/O · no reasoning · 💚 very cheap       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,62 +62,106 @@ Walk through each primitive with its one-liner, cost model, and decision rule.
 Use the table in `reference/taxonomy.md` as the backbone.
 
 **Tools:** "The hands. Deterministic I/O. If bash can do it, don't use an LLM."
+- Point at the `!` injection in `digest-skill`: `` !`wc -w "$1"` `` runs before the model
+  reads the file, injecting the word count as data — zero tokens, zero tool calls.
 
-**Skill:** "Packaged instructions. Zero tokens until invoked — progressive disclosure.
-Runs in your context. The baseline."
+**Skill:** Open `digest-skill/SKILL.md` in a split pane and walk the frontmatter top-down:
+- `user-invocable: true` — appears in `/help` and the picker.
+- `argument-hint: "<path> [focus] [length]"` — cosmetic; tells the user what to type.
+- `arguments: { focus, length }` — named params accessible as `$focus` / `$length`.
+- `allowed-tools: [Read, Bash]` — blast radius locked. Can't fetch URLs or write files.
+- Body: `$1` (positional path), `$focus`, `$length` substituted at load time — before the model reads it.
+- Summary: "Packaged instructions. Zero tokens until invoked. Progressive disclosure. The baseline."
 
-**Subagent:** "Same SKILL.md. One line added. Isolated context. Only the result returns.
-Your context stays clean regardless of how much work the subagent did."
+**Subagent:** "Same SKILL.md. `context: fork` added. Isolated context. Only the result returns."
+- Open `digest-subagent/SKILL.md` — point out it has the *same body*, just two new frontmatter lines.
+- The `agent:` field is the isolated executor's system prompt — tight persona, no noise.
 
-**Agent definition:** "A named, isolated executor with fixed tools and model. Any
-orchestrator can delegate to it. It's a thing, not a relationship."
+**Agent definition:** Open `.claude/agents/digester.md`:
+- `model: claude-haiku-4-5-20251001` — the model is set in the definition, not at call time.
+- `tools: [Read, Bash]` — syntax differs from `allowed-tools` in skills, same purpose.
+- Always runs isolated — no `context: fork` needed; delegation implies isolation.
+- "It's a thing, not a relationship. Any orchestrator can delegate to it by name."
 
-**Agent loop:** "The orchestrator. Headless. Repeats. Its job is to decide and delegate —
-not to do the work itself."
+**Agent loop:** "The orchestrator. Headless. Repeats. Its job is to decide and delegate."
+- Open `digest-all.sh` — point at what's *not* there: no business logic, no digesting, just iteration.
 
 ### Part 3 — The live demos (15 min)
 
 Run in order. Each one builds on the previous.
 
-**Demo 1 — Skill**
+**Demo 1 — Skill (in-context, all characteristics on display)**
+
+Before running: open `digest-skill/SKILL.md` in a split pane so the audience can
+see the frontmatter live.
+
 ```
 /digest-skill sample-doc.md "key risks" short
 ```
-After: "Notice your context just grew. The whole document is in your history now.
-That's the baseline. Now let's isolate."
 
-**Demo 2 — Subagent + the diff**
+While it runs, narrate what's happening from the SKILL.md:
+- `$1 = sample-doc.md` (positional param, path)
+- `$focus = "key risks"` (named param from `arguments:` block)
+- `$length = short` (named param — 3–5 bullets)
+- The word count was injected by `` !`wc -w "$1"` `` *before* the model read the file.
+  The model arrived knowing the doc was ~3,400 words — no tool call spent.
+- `allowed-tools: [Read, Bash]` — the only tools available inside this skill.
+
+After: **"Notice your context just grew. The word count injection, the full document
+content, the digest, all of it is now in your session history. That's the in-context
+cost. That's what we're about to isolate."**
+
+**Demo 2 — Subagent + the diff (the talk's key moment)**
+
 ```
 /digest-subagent sample-doc.md "key risks" short
 ```
-After: "Same task. Same output. Your context didn't grow. Now the reveal:"
+
+After: "Same task. Same params. Same output format. Your context barely moved."
+
+Now open both files side-by-side and run the diff:
 ```bash
 git diff --no-index \
   .claude/skills/digest-skill/SKILL.md \
   .claude/skills/digest-subagent/SKILL.md
 ```
-Point at the diff: **"`context: fork` and `agent:`. Two lines. That's the entire
-lesson between a skill and a subagent."** Let it land.
 
-**Demo 3 — Agent definition**
-Say to Claude in the session:
+Point at the diff output and read it aloud: **"`context: fork` and `agent:`. That's it.
+Two lines in the frontmatter. Same body. Completely different execution model. The full
+document lived and died in a separate context. Only the digest came back."**
+
+Pause. Let it land. This is the core lesson.
+
+**Demo 3 — Agent definition (a named, constrained executor)**
+
+Open `.claude/agents/digester.md` in a split pane. Walk the frontmatter before running:
+- `model: claude-haiku-4-5-20251001` — haiku, not the session model. Set here, in the
+  definition, for every caller that ever delegates to this agent.
+- `tools: [Read, Bash]` — not `allowed-tools` (that's the skill syntax); this is the agent
+  definition syntax. Same purpose: lock the blast radius at definition time, not call time.
+- No `context: fork` needed — delegation always implies isolation.
+
+Then say to Claude:
 > "Use the digester agent to summarize sample-doc.md — focus on open questions, short."
 
-Watch Claude delegate via the Agent tool. Point out:
-- The model used is `haiku` — set in the agent definition, not here.
-- Tools are `Read` + `Bash` only — the agent can't fetch URLs or write files.
-- It's always isolated — the definition implies the fork.
+Watch Claude delegate via the Agent tool. Point out: "Notice the model. Notice the tools.
+Those aren't things the caller chose — they're properties of the agent. The caller just
+said 'use digester.' The definition did the rest."
 
-Open `.claude/agents/digester.md` in a split pane and walk the frontmatter.
+**Demo 4 — Agent loop (the orchestrator with no business logic)**
 
-**Demo 4 — Agent loop**
 ```bash
 bash digest-all.sh --dry-run   # show the plan
 bash digest-all.sh             # run it
 cat digests/agentic-patterns-digest.md
 ```
-Open `digest-all.sh` side-by-side. Point at the content: "There is no business logic
-here. The loop decides *what* to run and *repeats*. The skill does the work."
+
+Open `digest-all.sh` side-by-side. Read the content aloud — point at what's *not* there:
+no digesting logic, no summarization, no format decisions. Just: loop over files, call
+`claude --print "/digest-subagent"`, write the result. That's the entire script.
+
+**"The loop decides what to run and repeats. The skill decides how. They don't know
+about each other. Either one can be replaced without touching the other."**
 
 ### Part 4 — The production capstone (5 min)
 
@@ -152,8 +197,16 @@ claude
 # Then diff them
 ```
 
-Challenge: "Add a third named param to `digest-skill` — `format` (bullets/prose/table).
-Then propagate it to `digest-subagent`. Count the lines changed."
+Challenge: "Add a `format` param (`bullets` / `prose` / `table`) to `digest-skill`.
+Then propagate it to `digest-subagent`. Edit the two files, count the lines changed,
+and notice that the isolation logic doesn't need to change — only the body contract."
+
+Files to edit:
+- `.claude/skills/digest-skill/SKILL.md` — add `format` to `arguments:`, add handling in body
+- `.claude/skills/digest-subagent/SKILL.md` — copy the same `arguments:` addition and body line
+
+The agent loop (`digest-all.sh`) and the agent definition (`digester.md`) don't need
+any changes. That's the composition payoff.
 
 ---
 

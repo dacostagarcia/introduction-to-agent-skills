@@ -62,10 +62,15 @@ As you run each expression below, notice what changes — and what *doesn't*.
 /digest-skill sample-doc.md "key risks" short
 ```
 
-The skill body loads into **your** context. The document is read here. The digest and
-all intermediate reasoning stay in your session history.
+The skill body loads into **your** context. Notice what this single file demonstrates:
+- `$1 = sample-doc.md` — positional param (the path)
+- `$focus = "key risks"` — named param from the `arguments:` block
+- `$length = short` — named param controlling output format
+- `` !`wc -w "$1"` `` — word count injected *before* the model read anything. No tool call.
+- `allowed-tools: [Read, Bash]` — blast radius locked in the frontmatter.
 
-Observe: after running this, your context window grew by the size of `sample-doc.md`.
+After it runs: your context window grew by the size of `sample-doc.md` + the reasoning +
+the digest. Everything lived here. That's the in-context cost — the baseline to beat.
 
 ---
 
@@ -98,10 +103,16 @@ Ask Claude directly:
 > "Use the digester agent to summarize sample-doc.md, focusing on security considerations,
 > in a short digest."
 
-Claude will delegate to `.claude/agents/digester.md` via the Agent tool. Notice:
-- It runs on `claude-haiku` (cheaper — the agent definition sets the model).
-- Its tools are locked to `Read` and `Bash` — it cannot fetch URLs or write files.
-- It's always isolated — agent definitions always run as subagents.
+Claude will delegate to `.claude/agents/digester.md` via the Agent tool. Open that file
+in a split pane while it runs and point at:
+- `model: claude-haiku-4-5-20251001` — cheaper model, set in the definition. Every caller
+  that delegates to this agent gets haiku. The caller doesn't choose.
+- `tools: [Read, Bash]` — the agent definition syntax for tool restriction (vs `allowed-tools`
+  in skills — same purpose, different key name).
+- No `context: fork` — it's implicit. Delegation always creates isolation.
+
+The key distinction from a subagent skill: this is a *thing* (a named, stable executor),
+not a *relationship* (this skill, run isolated, once). Any orchestrator can delegate to it.
 
 ---
 

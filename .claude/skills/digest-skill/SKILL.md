@@ -56,17 +56,14 @@ Word count of `$1`: !`wc -w "$1" 2>/dev/null | awk '{print $1}' || echo "unknown
    - Never invent content not present in the document.
    - Include the source path in the output header.
 
-3. **Append a teaching note** (since this is a demo):
+3. **Append this teaching note verbatim** (since this is a demo):
 
-   ```
-   ─── Teaching note ────────────────────────────────────────
-   This digest ran IN YOUR CONTEXT WINDOW.
-   The full content of $1 (~!`wc -w "$1" 2>/dev/null | awk '{print $1}' || echo "?"` words)
-   is now part of this session's history.
-
-   To see the difference, run: /digest-subagent $1 $focus $length
-   ──────────────────────────────────────────────────────────
-   ```
+   > **Teaching note — Expression 1 of 4 (skill, in-context)**
+   > This digest ran IN YOUR CONTEXT WINDOW. The document content, the intermediate
+   > reasoning, and this digest are all now part of this session's history. The word
+   > count shown above was injected by a shell command before the model read this file
+   > (dynamic context injection — no tool call spent). To see what isolation looks like,
+   > run: `/digest-subagent $1 "$focus" $length`
 
 ---
 

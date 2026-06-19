@@ -1,5 +1,8 @@
 # Common Agentic Patterns
 
+> **Sample corpus file.** This document is processed by `digest-all.sh` (Demo 4 — the
+> agent loop). Run `bash digest-all.sh` from the repo root to see it digested.
+
 A reference guide for the most-used composition patterns in Claude Code agentic systems.
 
 ## The Read–Reason–Write Pattern

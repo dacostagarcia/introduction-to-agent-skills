@@ -62,20 +62,13 @@ Word count of `$1`: !`wc -w "$1" 2>/dev/null | awk '{print $1}' || echo "unknown
    - Never invent content not present in the document.
    - Include the source path in the output header.
 
-3. **Append a teaching note** (since this is a demo):
+3. **Append this teaching note verbatim** (since this is a demo):
 
-   ```
-   ─── Teaching note ────────────────────────────────────────
-   This digest ran in an ISOLATED SUBAGENT CONTEXT.
-   The full content of $1 is gone — only this digest returned.
-   The caller's context window did not grow.
-
-   To see the one-line difference from digest-skill, run:
-   git diff --no-index \
-     .claude/skills/digest-skill/SKILL.md \
-     .claude/skills/digest-subagent/SKILL.md
-   ──────────────────────────────────────────────────────────
-   ```
+   > **Teaching note — Expression 2 of 4 (subagent, isolated)**
+   > This digest ran in an ISOLATED SUBAGENT CONTEXT. The full document content,
+   > the intermediate reasoning, everything I read — gone. Only this digest returned.
+   > The caller's context window did not grow. To see the one-line difference from
+   > digest-skill, run: `git diff --no-index .claude/skills/digest-skill/SKILL.md .claude/skills/digest-subagent/SKILL.md`
 
 ---
 
